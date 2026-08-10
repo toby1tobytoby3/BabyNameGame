@@ -1,17 +1,24 @@
 {
-  "name": "babynames",
+  "name": "baby-name-game",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --test lib/**/*.test.ts",
+    "db:push": "node --env-file=.env.local scripts/db-push.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.116.0",
+    "jose": "^6.2.8",
+    "motion": "^13.1.0",
     "next": "16.3.0",
+    "postgres": "^3.4.9",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "swr": "^2.5.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -71,6 +71,37 @@ test("tidyDisplay fixes the two ways people type, and no others", () => {
   assert.equal(tidyDisplay("zoë"), "Zoë");
 });
 
+test("clampOriginPrefs holds the −2…+2 scale against old and bad data", async () => {
+  const { clampOriginPrefs } = await import("./types.ts");
+  // Weights from the old 0…5 scale land at the new ceiling rather than
+  // scoring off the end of it.
+  assert.deepEqual(clampOriginPrefs([{ origin: "Irish", weight: 5 }]), [
+    { origin: "Irish", weight: 2 },
+  ]);
+  assert.deepEqual(clampOriginPrefs([{ origin: "German", weight: -9 }]), [
+    { origin: "German", weight: -2 },
+  ]);
+  // 0 is "no opinion" and is never stored, so it drops out entirely.
+  assert.deepEqual(clampOriginPrefs([{ origin: "Greek", weight: 0 }]), []);
+  assert.deepEqual(clampOriginPrefs([{ origin: "Greek", weight: 1.4 }]), [
+    { origin: "Greek", weight: 1 },
+  ]);
+  // Shapes a jsonb column can legitimately hand back.
+  assert.deepEqual(clampOriginPrefs(null), []);
+  assert.deepEqual(clampOriginPrefs("[]"), []);
+  assert.deepEqual(clampOriginPrefs([{ origin: "", weight: 2 }]), []);
+  assert.deepEqual(clampOriginPrefs([{ weight: 2 }]), []);
+  assert.deepEqual(clampOriginPrefs([{ origin: "Irish" }]), []);
+  // A duplicated origin would otherwise render two rows for one control.
+  assert.deepEqual(
+    clampOriginPrefs([
+      { origin: "Irish", weight: 2 },
+      { origin: "Irish", weight: -1 },
+    ]),
+    [{ origin: "Irish", weight: 2 }],
+  );
+});
+
 test("toTags survives the shapes jsonb can actually return", async () => {
   const { toTags } = await import("./types.ts");
   assert.deepEqual(toTags(["short", "vintage"]), ["short", "vintage"]);

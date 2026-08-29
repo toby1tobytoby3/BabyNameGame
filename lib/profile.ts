@@ -4,6 +4,8 @@ import { toTags, type Candidate, type Decision, type Preferences } from "./types
 export interface StyleProfile {
   /** origin -> 0..1, blended from liked names and explicit preferences */
   originWeight: Record<string, number>;
+  /** origin -> score multiplier below 1, for origins pulled left of centre */
+  originDamping: Record<string, number>;
   /** style tag -> 0..1 (origin-echo tags excluded) */
   tagWeight: Record<string, number>;
   meanLen: number;
@@ -12,6 +14,16 @@ export interface StyleProfile {
   /** non-null only when origin_mode === 'hard' */
   hardOrigins: Set<string> | null;
 }
+
+/**
+ * What a negative pull does, indexed by its magnitude.
+ *
+ * A multiplier rather than a filter, deliberately. Against the 0.2 score floor
+ * a −2 origin comes up roughly fifteen times less often than a neutral one —
+ * gone from any normal session, but never unreachable, which is the same
+ * principle the floor itself exists for.
+ */
+const DAMPING = [1, 0.3, 0.06];
 
 function normalise(counts: Record<string, number>): Record<string, number> {
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
@@ -40,9 +52,16 @@ export function buildProfile(
 
   const originShare = normalise(originCounts);
 
+  // The scale is two-sided: the right half feeds the blend below, the left half
+  // damps the final score instead. They are not opposite ends of one number —
+  // "show me more Irish" and "show me less German" act on different terms.
   const prefCounts: Record<string, number> = {};
+  const originDamping: Record<string, number> = {};
   for (const p of prefs.origins) {
     if (p.weight > 0) prefCounts[p.origin] = p.weight;
+    else if (p.weight < 0)
+      originDamping[p.origin] =
+        DAMPING[Math.min(-p.weight, DAMPING.length - 1)];
   }
   const prefShare = normalise(prefCounts);
 
@@ -79,15 +98,20 @@ export function buildProfile(
     : 4;
   const sd = Math.max(Math.sqrt(variance), 1.5); // floor stops a narrow profile
 
+  // "Only these" means only the origins pulled *right* of centre. An origin you
+  // pushed away is not one of the few you asked to be restricted to.
+  const allowed = prefs.origins.filter((o) => o.weight > 0);
+
   return {
     originWeight,
+    originDamping,
     tagWeight: normalise(tagCounts),
     meanLen,
     sd,
     likedCount: liked.length,
     hardOrigins:
-      prefs.origin_mode === "hard" && prefs.origins.length
-        ? new Set(prefs.origins.map((o) => o.origin))
+      prefs.origin_mode === "hard" && allowed.length
+        ? new Set(allowed.map((o) => o.origin))
         : null,
   };
 }
@@ -103,6 +127,7 @@ export function buildProfile(
  */
 export function scoreCandidate(c: Candidate, p: StyleProfile): number {
   const origin = c.origin ? (p.originWeight[c.origin] ?? 0) : 0;
+  const damping = c.origin ? (p.originDamping[c.origin] ?? 1) : 1;
 
   const styleTags = toTags(c.tags).filter((tg) => STYLE_TAGS.has(tg));
   const tagOverlap = styleTags.length
@@ -114,7 +139,11 @@ export function scoreCandidate(c: Candidate, p: StyleProfile): number {
     -((c.display.length - p.meanLen) ** 2) / (2 * p.sd ** 2),
   );
 
-  return 0.2 + 2.0 * origin + 0.5 * tagOverlap + 0.35 * lengthCloseness;
+  // Damping multiplies the whole score, the floor included — an origin you
+  // pushed away should not keep its baseline share through the floor alone.
+  return (
+    (0.2 + 2.0 * origin + 0.5 * tagOverlap + 0.35 * lengthCloseness) * damping
+  );
 }
 
 /** Short natural-language style description handed to the model. */
@@ -128,8 +157,11 @@ export function describeProfile(p: StyleProfile): string {
     .slice(0, 4)
     .map(([tg]) => tg);
 
+  const avoided = Object.keys(p.originDamping);
+
   const parts: string[] = [];
   if (topOrigins.length) parts.push(`Favoured origins: ${topOrigins.join(", ")}.`);
+  if (avoided.length) parts.push(`Origins to avoid: ${avoided.join(", ")}.`);
   if (topTags.length) parts.push(`Recurring qualities: ${topTags.join(", ")}.`);
   parts.push(
     `Typical liked name length: ${p.meanLen.toFixed(1)} characters (spread ±${p.sd.toFixed(1)}).`,

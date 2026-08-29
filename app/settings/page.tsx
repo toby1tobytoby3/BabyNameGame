@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import useSWR from "swr";
+import OriginScale from "@/components/OriginScale";
 import { fetcher } from "@/lib/fetcher";
 import type { OriginPref, Preferences } from "@/lib/types";
 
@@ -36,12 +37,20 @@ export default function SettingsPage() {
     setDraft({});
   }
 
-  function setOriginWeight(origin: string, weight: number) {
+  /**
+   * A weight of 0 is "no opinion" and is simply not stored, so the list only
+   * ever holds origins you have actually pulled one way or the other.
+   *
+   * Dragging fires per step; only the release saves, so one gesture is one
+   * request rather than one per notch crossed.
+   */
+  function setOriginWeight(origin: string, weight: number, commit: boolean) {
     if (!prefs) return;
     const others = prefs.origins.filter((o) => o.origin !== origin);
     const next: OriginPref[] =
-      weight > 0 ? [...others, { origin, weight }] : others;
-    void save({ origins: next });
+      weight === 0 ? others : [...others, { origin, weight }];
+    if (commit) void save({ origins: next });
+    else setPrefs({ ...prefs, origins: next });
   }
 
   async function logout() {
@@ -111,9 +120,23 @@ export default function SettingsPage() {
         />
       </section>
 
-      {/* Origin mode ------------------------------------------------------ */}
+      {/* Origins ---------------------------------------------------------- */}
       <section>
-        <h2 className="text-[13px] font-medium tracking-wide">Origins</h2>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-[13px] font-medium tracking-wide">Origins</h2>
+          {prefs.origins.length > 0 && (
+            <button
+              onClick={() => save({ origins: [] })}
+              className="text-[12px] text-muted transition-colors hover:text-ink"
+            >
+              Reset all
+            </button>
+          )}
+        </div>
+        <p className="mt-1 text-[12px] text-muted">
+          Pull an origin left to see fewer of its names, right to see more.
+        </p>
+
         <div className="mt-3 flex gap-1 rounded-lg border border-line bg-card p-0.5">
           {(["soft", "hard"] as const).map((mode) => (
             <button
@@ -130,42 +153,30 @@ export default function SettingsPage() {
           ))}
         </div>
 
-        <ul className="mt-3 space-y-1.5">
-          {data.availableOrigins.map((origin) => {
-            const w = weightOf(origin);
-            return (
-              <li
-                key={origin}
-                className="flex items-center justify-between rounded-xl border border-line bg-card px-4 py-2.5"
-              >
-                <span className={`text-sm ${w > 0 ? "text-ink" : "text-muted"}`}>
-                  {origin}
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setOriginWeight(origin, Math.max(w - 1, 0))}
-                    disabled={w === 0}
-                    aria-label={`Decrease ${origin}`}
-                    className="h-7 w-7 rounded-md border border-line text-muted disabled:opacity-30"
-                  >
-                    −
-                  </button>
-                  <span className="w-4 text-center text-sm tabular-nums">
-                    {w}
-                  </span>
-                  <button
-                    onClick={() => setOriginWeight(origin, Math.min(w + 1, 5))}
-                    disabled={w === 5}
-                    aria-label={`Increase ${origin}`}
-                    className="h-7 w-7 rounded-md border border-line text-muted disabled:opacity-30"
-                  >
-                    +
-                  </button>
-                </div>
+        <div className="mt-3 overflow-hidden rounded-xl border border-line bg-card">
+          {/* Scale legend, on the same grid as the rows so it sits over the axis. */}
+          <div className="grid grid-cols-[1fr_8.5rem_1.5rem] gap-2 border-b border-line px-3 py-1.5 text-[10px] tracking-wide text-muted uppercase">
+            <span />
+            <span className="flex justify-between">
+              <span>Fewer</span>
+              <span>More</span>
+            </span>
+            <span />
+          </div>
+
+          <ul className="divide-y divide-line">
+            {data.availableOrigins.map((origin) => (
+              <li key={origin}>
+                <OriginScale
+                  origin={origin}
+                  value={weightOf(origin)}
+                  onInput={(w) => setOriginWeight(origin, w, false)}
+                  onCommit={(w) => setOriginWeight(origin, w, true)}
+                />
               </li>
-            );
-          })}
-        </ul>
+            ))}
+          </ul>
+        </div>
       </section>
 
       <button

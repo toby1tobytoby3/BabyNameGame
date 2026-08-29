@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { buildTopUp } from "./generate.ts";
 import { LIBRARY } from "./library.ts";
-import { buildProfile } from "./profile.ts";
+import { buildProfile, scoreCandidate } from "./profile.ts";
 import { DEFAULT_PREFERENCES, type Decision, type Preferences } from "./types.ts";
 
 function liked(displays: string[]): Decision[] {
@@ -90,7 +90,7 @@ test("respects a hard origin filter", async () => {
   const hardPrefs: Preferences = {
     ...DEFAULT_PREFERENCES,
     origin_mode: "hard",
-    origins: [{ origin: "Irish", weight: 3 }],
+    origins: [{ origin: "Irish", weight: 2 }],
   };
   const profile = buildProfile([], hardPrefs);
   const { candidates } = await buildTopUp({
@@ -105,6 +105,20 @@ test("respects a hard origin filter", async () => {
   });
   assert.ok(candidates.length > 0);
   for (const c of candidates) assert.equal(c.origin, "Irish");
+});
+
+test("an origin pushed away is not restricted *to* in hard mode", () => {
+  // "Only these" plus a negative pull used to mean "only the origin you asked
+  // to see less of" — the filter took every stated origin regardless of sign.
+  const profile = buildProfile([], {
+    ...DEFAULT_PREFERENCES,
+    origin_mode: "hard",
+    origins: [
+      { origin: "Irish", weight: 2 },
+      { origin: "German", weight: -2 },
+    ],
+  });
+  assert.deepEqual([...profile.hardOrigins!], ["Irish"]);
 });
 
 /**
@@ -163,6 +177,28 @@ test("liked names bias the sample towards their origin", async () => {
   assert.ok(
     share < 0.6,
     `Irish ${(share * 100).toFixed(1)}% is crowding everything else out`,
+  );
+});
+
+test("pulling an origin left suppresses it, but never to zero", async () => {
+  const profile = buildProfile([], {
+    ...DEFAULT_PREFERENCES,
+    origins: [{ origin: "Irish", weight: -2 }],
+  });
+
+  // Reachability is asserted on the score directly. Sampling could only ever
+  // report "it didn't come up", which is not the same claim.
+  const irish = LIBRARY.find((c) => c.origin === "Irish")!;
+  assert.ok(
+    scoreCandidate(irish, profile) > 0,
+    "a pushed-away origin must stay reachable",
+  );
+
+  const share = await meanShare("Irish", profile, new Set());
+  const baseline = libraryShare("Irish");
+  assert.ok(
+    share < baseline * 0.35,
+    `Irish ${(share * 100).toFixed(1)}% should sit far below the ${(baseline * 100).toFixed(1)}% baseline`,
   );
 });
 

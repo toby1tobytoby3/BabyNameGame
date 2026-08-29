@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { LIBRARY_ORIGINS } from "@/lib/library";
 import { getPreferences, savePreferences } from "@/lib/queue";
-import type { Preferences } from "@/lib/types";
+import { clampOriginPrefs, type Preferences } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -22,14 +22,9 @@ export async function PUT(req: Request) {
 
   const patch: Partial<Preferences> = {};
 
-  if (Array.isArray(body.origins)) {
-    patch.origins = body.origins
-      .filter((o) => o && typeof o.origin === "string")
-      .map((o) => ({
-        origin: o.origin,
-        weight: Math.min(Math.max(Number(o.weight) || 1, 0), 5),
-      }));
-  }
+  // clampOriginPrefs also drops zeros, so an origin pulled back to the middle
+  // simply stops being stored.
+  if (Array.isArray(body.origins)) patch.origins = clampOriginPrefs(body.origins);
   if (body.similar_new_mix !== undefined) {
     patch.similar_new_mix = Math.min(
       Math.max(Number(body.similar_new_mix), 0),

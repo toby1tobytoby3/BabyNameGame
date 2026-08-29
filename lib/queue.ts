@@ -4,6 +4,7 @@ import { LIBRARY } from "./library.ts";
 import { nameKey, tidyDisplay } from "./nameKey.ts";
 import { buildProfile } from "./profile.ts";
 import {
+  clampOriginPrefs,
   DEFAULT_PREFERENCES,
   MAX_HEARTS,
   type Candidate,
@@ -23,7 +24,10 @@ export async function getPreferences(h: SqlHandle = sql): Promise<Preferences> {
     SELECT origins, similar_new_mix::float8 AS similar_new_mix, origin_mode,
            surname, topup_threshold
     FROM ${q(h, "preferences")} WHERE id = 1`;
-  return row ? { ...DEFAULT_PREFERENCES, ...row } : DEFAULT_PREFERENCES;
+  if (!row) return DEFAULT_PREFERENCES;
+  // Clamp on read, not just on write: rows predating the −2…+2 scale hold
+  // weights up to 5.
+  return { ...DEFAULT_PREFERENCES, ...row, origins: clampOriginPrefs(row.origins) };
 }
 
 export async function getLiked(h: SqlHandle = sql): Promise<Decision[]> {

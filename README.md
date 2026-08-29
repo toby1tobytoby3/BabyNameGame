@@ -78,6 +78,15 @@ low-water mark (default 30), a 60-name chunk is generated — 60% weighted-sampl
 from the library, 40% from Claude — and appended. Refills happen in the
 background so swiping never blocks on the network.
 
+**The origin scale.** Each origin sits on a −2 … +2 axis in Settings: pull the
+connector left of the line to see fewer of its names, right to see more. The two
+halves are not one number — the right half feeds the preference blend below,
+while the left half damps the candidate's score outright (−2 lands at 0.06×,
+roughly fifteen times rarer than neutral, and still never zero, so nothing
+becomes unreachable). "Only these" restricts to the origins pulled right, and
+the model is told about both halves separately so it doesn't read a label and
+miss the sign.
+
 **Personalisation.** A style profile is rebuilt on every top-up from what you've
 liked: origin distribution, style tags, and name length. Candidates are scored
 against it and drawn by Efraimidis–Spirakis weighted sampling, so high-scoring

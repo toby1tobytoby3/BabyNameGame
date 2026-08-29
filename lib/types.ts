@@ -40,6 +40,41 @@ export type OriginPref = {
   weight: number;
 };
 
+/**
+ * The origin scale runs −2 … +2 around a neutral 0: pull left to see fewer
+ * names from an origin, right to see more. Zero is "no opinion" and is never
+ * stored, so the absence of a row and a row at 0 mean the same thing.
+ */
+export const MIN_ORIGIN_WEIGHT = -2;
+export const MAX_ORIGIN_WEIGHT = 2;
+
+/**
+ * Coerce a stored or submitted origins value into the scale.
+ *
+ * Defensive on both ends: the column is jsonb so it can hold anything, and the
+ * scale used to run 0…5, so live rows carry weights this range no longer has.
+ * Clamping on read means a legacy 5 behaves as +2 everywhere rather than
+ * scoring off the end of the scale.
+ */
+export function clampOriginPrefs(value: unknown): OriginPref[] {
+  if (!Array.isArray(value)) return [];
+  const out: OriginPref[] = [];
+  const seen = new Set<string>();
+  for (const raw of value) {
+    if (!raw || typeof raw !== "object") continue;
+    const { origin, weight } = raw as Partial<OriginPref>;
+    if (typeof origin !== "string" || !origin || seen.has(origin)) continue;
+    const w = Math.round(Number(weight));
+    if (!Number.isFinite(w) || w === 0) continue;
+    seen.add(origin);
+    out.push({
+      origin,
+      weight: Math.min(Math.max(w, MIN_ORIGIN_WEIGHT), MAX_ORIGIN_WEIGHT),
+    });
+  }
+  return out;
+}
+
 export interface Preferences {
   origins: OriginPref[];
   similar_new_mix: number;

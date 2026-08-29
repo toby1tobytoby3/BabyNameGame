@@ -78,14 +78,26 @@ export async function generateNames(opts: {
   const client = new Anthropic();
   const liked = sampleLiked(opts.liked);
 
-  const prefLine = opts.prefs.origins.length
-    ? opts.prefs.origins
-        .map((o) => `${o.origin} (weight ${o.weight})`)
+  // The origin scale is two-sided, so it reaches the model as two lines. One
+  // list carrying "German (weight -2)" invites the model to read the label and
+  // ignore the sign.
+  const preferred = opts.prefs.origins.filter((o) => o.weight > 0);
+  const avoided = opts.prefs.origins.filter((o) => o.weight < 0);
+
+  const prefLine = preferred.length
+    ? preferred
+        .map((o) => `${o.origin}${o.weight > 1 ? " (strongly)" : ""}`)
         .join(", ") +
       (opts.prefs.origin_mode === "hard"
         ? " — RESTRICT suggestions to these origins only."
         : " — treat as a bias, not a restriction.")
     : "none stated";
+
+  const avoidLine = avoided.length
+    ? avoided
+        .map((o) => `${o.origin}${o.weight < -1 ? " (strongly)" : ""}`)
+        .join(", ")
+    : "none";
 
   const userContent = [
     `Suggest ${opts.count} ${opts.gender} names.`,
@@ -93,6 +105,7 @@ export async function generateNames(opts: {
     `STYLE: ${describeProfile(opts.profile)}`,
     ``,
     `ORIGIN PREFERENCES: ${prefLine}`,
+    `ORIGINS THEY DO NOT WANT: ${avoidLine}`,
     ``,
     `LIKED (${liked.length}${opts.liked.length > liked.length ? ` of ${opts.liked.length}` : ""}):`,
     liked.length ? liked.map((d) => d.display).join(", ") : "(none yet)",

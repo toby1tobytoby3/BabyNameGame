@@ -58,7 +58,7 @@ npm run dev
 | `npm run dev` | Local dev server |
 | `npm run build` | Production build |
 | `npm test` | Unit tests (normalisation + generation pipeline) |
-| `npm run db:push` | Re-apply `db/*.sql`. Idempotent — safe to re-run. |
+| `npm run db:push` | Re-apply `db/*.sql`. Idempotent — safe to re-run. Run it after pulling a change that adds a file to `db/`. |
 
 ---
 
@@ -84,6 +84,15 @@ against it and drawn by Efraimidis–Spirakis weighted sampling, so high-scoring
 names appear more often while everything stays reachable. The liked signal is
 shrunk toward uniform when it rests on few observations — one like nudges,
 fifty pull hard.
+
+**The shortlist.** Girls and boys are separate lists, not one list sorted by
+gender — a shortlist is only useful when you can see the handful of names
+actually in the running for one baby. Names marked neutral appear under both,
+the same way the swipe queue serves them. Double-tapping a name adds a heart
+(three at most, a fourth tap clears them) and floats it to the top; swiping a
+row left removes it, with an undo; the grip on the left reorders. Dragging is
+started from the grip alone, so a finger anywhere else on a row scrolls the page
+as it should.
 
 **Two people, one account.** Decisions are optimistic and roll back on failure.
 Top-ups are guarded by a Postgres try-lock, so simultaneous swiping never

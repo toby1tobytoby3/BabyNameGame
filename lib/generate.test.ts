@@ -13,6 +13,7 @@ function liked(displays: string[]): Decision[] {
       ...found,
       verdict: "like" as const,
       rank: i + 1,
+      hearts: 0,
       decided_at: new Date().toISOString(),
     };
   });

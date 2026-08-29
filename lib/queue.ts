@@ -3,6 +3,7 @@ import { buildTopUp } from "./generate.ts";
 import { buildProfile } from "./profile.ts";
 import {
   DEFAULT_PREFERENCES,
+  MAX_HEARTS,
   type Candidate,
   type Decision,
   type GenderFilter,
@@ -236,12 +237,58 @@ export async function topUpGender(
  * — the name stays in `decisions` so it can never resurface, it just loses its
  * rank. (The spec left this open; showing a name you already rejected once is
  * more annoying than losing the option to re-like it.)
+ *
+ * Hearts are left intact so `relike` can restore the row exactly as it was when
+ * the swipe-to-remove undo is taken.
  */
 export async function unlike(nameKey: string): Promise<void> {
   await sql`
     UPDATE ${t("decisions")}
     SET verdict = 'pass', rank = NULL
     WHERE name_key = ${nameKey} AND verdict = 'like'`;
+}
+
+/**
+ * Undo a removal. The row is still in `decisions` as a pass, so this is a flip
+ * back rather than a re-insert — which is also why hearts survive: `unlike`
+ * only clears the rank.
+ */
+export async function relike(
+  nameKey: string,
+  rank: number | null,
+): Promise<void> {
+  await sql`
+    UPDATE ${t("decisions")} SET
+      verdict = 'like',
+      rank = COALESCE(
+        ${rank}::int,
+        (SELECT COALESCE(MAX(rank), 0) + 1 FROM ${t("decisions")} WHERE verdict = 'like')
+      )
+    WHERE name_key = ${nameKey} AND verdict = 'pass'`;
+}
+
+/**
+ * Set a name's heart count, clamped to 0–MAX_HEARTS.
+ *
+ * Gaining a heart also floats the name to the top of the shortlist — that jump
+ * *is* the feedback for the double-tap, so it happens in the same statement
+ * rather than as a follow-up reorder that could half-apply. Ranks are only ever
+ * compared, never assumed contiguous, so MIN(rank) - 1 going negative is fine;
+ * the next drag renumbers from 1 anyway.
+ */
+export async function setHearts(
+  nameKey: string,
+  hearts: number,
+): Promise<void> {
+  const h = Math.max(0, Math.min(MAX_HEARTS, Math.trunc(hearts) || 0));
+  await sql`
+    UPDATE ${t("decisions")} d SET
+      hearts = ${h},
+      rank = CASE WHEN ${h} > 0
+        THEN (SELECT COALESCE(MIN(rank), 1) - 1 FROM ${t("decisions")} WHERE verdict = 'like')
+        ELSE d.rank
+      END
+    WHERE d.name_key = ${nameKey} AND d.verdict = 'like'`;
 }
 
 export async function reorderLiked(orderedKeys: string[]): Promise<void> {

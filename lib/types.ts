@@ -21,9 +21,14 @@ export interface Candidate {
   source: Source;
 }
 
+/** Most hearts a single shortlisted name can carry. */
+export const MAX_HEARTS = 3;
+
 export interface Decision extends Candidate {
   verdict: Verdict;
   rank: number | null;
+  /** 0–3 favourite markers. See MAX_HEARTS. */
+  hearts: number;
   decided_at: string;
 }
 

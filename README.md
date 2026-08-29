@@ -94,6 +94,14 @@ row left removes it, with an undo; the grip on the left reorders. Dragging is
 started from the grip alone, so a finger anywhere else on a row scrolls the page
 as it should.
 
+**Adding a name by hand.** The `+` on the shortlist takes a name the deck never
+offered. It goes in at the top, and it is a real decision: the name is deleted
+from the queue so you are never asked to swipe on it, and a name you passed
+before is flipped back rather than duplicated — `name_key` keeps the
+never-repeat guarantee intact either way. If the library knows the name, its
+spelling, origin and tags are used, so an added name teaches the generator as
+much as a swiped one.
+
 **Two people, one account.** Decisions are optimistic and roll back on failure.
 Top-ups are guarded by a Postgres try-lock, so simultaneous swiping never
 double-generates or double-charges. Returning to the tab refreshes what the

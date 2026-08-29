@@ -26,3 +26,25 @@ export function nameKey(display: string): string {
     .replace(/[^a-z]/g, "") // drops hyphens and spaces: Mary-Jane→maryjane
     .trim();
 }
+
+/**
+ * Tidy a hand-typed name for display.
+ *
+ * Only the two ways people actually type into a phone are corrected — all
+ * lower ("otto") and all upper ("OTTO"). Anything with deliberate internal
+ * capitals is left exactly as typed, because no capitalisation rule gets
+ * McKenna, DeAndre and O'Brien right and guessing wrong is worse than
+ * trusting the person who typed it.
+ */
+export function tidyDisplay(input: string): string {
+  const cleaned = input.trim().replace(/\s+/g, " ");
+  const isAllLower = cleaned === cleaned.toLowerCase();
+  const isAllUpper = cleaned === cleaned.toUpperCase();
+  if (!isAllLower && !isAllUpper) return cleaned;
+
+  return cleaned
+    .toLowerCase()
+    .replace(/(^|[\s'’-])(\p{L})/gu, (_, sep: string, ch: string) =>
+      sep + ch.toUpperCase(),
+    );
+}

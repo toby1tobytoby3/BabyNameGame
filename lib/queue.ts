@@ -1,11 +1,14 @@
 import { q, sql, t, type SqlHandle } from "./db.ts";
 import { buildTopUp } from "./generate.ts";
+import { LIBRARY } from "./library.ts";
+import { nameKey, tidyDisplay } from "./nameKey.ts";
 import { buildProfile } from "./profile.ts";
 import {
   DEFAULT_PREFERENCES,
   MAX_HEARTS,
   type Candidate,
   type Decision,
+  type Gender,
   type GenderFilter,
   type Preferences,
 } from "./types.ts";
@@ -246,6 +249,71 @@ export async function unlike(nameKey: string): Promise<void> {
     UPDATE ${t("decisions")}
     SET verdict = 'pass', rank = NULL
     WHERE name_key = ${nameKey} AND verdict = 'like'`;
+}
+
+export interface AddResult {
+  /** added: new to the app. restored: previously passed. already: no-op. */
+  status: "added" | "restored" | "already";
+  name: Decision;
+}
+
+/**
+ * Put a hand-typed name straight onto the shortlist.
+ *
+ * Three things make this more than an INSERT:
+ *   - `name_key` collides with the never-repeat guarantee by design. A name
+ *     already decided on is *not* inserted a second time; a past pass is
+ *     flipped back to a like (with its hearts intact), and a name already
+ *     liked is reported as such rather than duplicated.
+ *   - a name still sitting in `queue` is deleted from it, exactly as `decide`
+ *     does, so you are never asked to swipe on a name you just added.
+ *   - if the library knows the name, its spelling, origin and tags are used.
+ *     The tags are the point: they are what the style profile reads, so an
+ *     added name teaches the generator as much as a swiped one.
+ *
+ * It lands at the top of the list, where you can see it.
+ */
+export async function addLiked(input: {
+  display: string;
+  gender: Gender;
+  origin: string | null;
+}): Promise<AddResult | null> {
+  const key = nameKey(input.display);
+  if (!key) return null;
+
+  const known = LIBRARY.find((c) => c.name_key === key);
+  const display = known?.display ?? tidyDisplay(input.display);
+  const origin = input.origin ?? known?.origin ?? null;
+  const tags = known?.tags ?? [];
+
+  return sql.begin(async (tx): Promise<AddResult> => {
+    const decisions = q(tx, "decisions");
+    const topRank = tx`(SELECT COALESCE(MIN(rank), 1) - 1 FROM ${q(tx, "decisions")} WHERE verdict = 'like')`;
+
+    const [existing] = await tx<Decision[]>`
+      SELECT * FROM ${decisions} WHERE name_key = ${key}`;
+
+    if (existing?.verdict === "like") {
+      return { status: "already", name: existing };
+    }
+
+    // A restored pass keeps the gender and origin it was decided with; the
+    // form's values describe a name that isn't in the database yet, and
+    // quietly rewriting a row you already have is the more surprising choice.
+    const [row] = existing
+      ? await tx<Decision[]>`
+          UPDATE ${decisions} SET verdict = 'like', rank = ${topRank}
+          WHERE name_key = ${key} RETURNING *`
+      : await tx<Decision[]>`
+          INSERT INTO ${decisions}
+            (name_key, display, gender, origin, tags, source, verdict, rank)
+          VALUES (${key}, ${display}, ${input.gender}, ${origin},
+                  ${sql.json(tags)}::jsonb, 'manual', 'like', ${topRank})
+          RETURNING *`;
+
+    await tx`DELETE FROM ${q(tx, "queue")} WHERE name_key = ${key}`;
+    return { status: existing ? "restored" : "added", name: row };
+  });
 }
 
 /**

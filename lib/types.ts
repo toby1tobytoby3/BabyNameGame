@@ -1,6 +1,7 @@
 export type Gender = "girl" | "boy" | "neutral";
 export type Verdict = "like" | "pass";
-export type Source = "library" | "ai";
+/** Where a name came from: the bundled library, Claude, or typed in by hand. */
+export type Source = "library" | "ai" | "manual";
 export type GenderFilter = "all" | "girl" | "boy";
 
 /** A row as it appears in data/library.json. */

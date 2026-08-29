@@ -3,8 +3,10 @@
 import { Reorder, useDragControls } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
+import AddNameForm from "@/components/AddNameForm";
 import ShortlistRow from "@/components/ShortlistRow";
 import { fetcher } from "@/lib/fetcher";
+import type { AddResult } from "@/lib/queue";
 import { MAX_HEARTS, type Decision } from "@/lib/types";
 
 /**
@@ -46,6 +48,7 @@ export default function LikedPage() {
   );
   const { data: prefsData } = useSWR<{
     preferences: { surname: string | null };
+    availableOrigins: string[];
   }>("/api/preferences", fetcher);
   const surname = prefsData?.preferences?.surname ?? null;
 
@@ -54,6 +57,7 @@ export default function LikedPage() {
   const [sort, setSort] = useState<SortKey>("manual");
   const [query, setQuery] = useState("");
   const [showSurname, setShowSurname] = useState(false);
+  const [adding, setAdding] = useState(false);
   // Holds an in-flight optimistic edit (reorder, heart, removal); otherwise the
   // server list is the single source of truth.
   const [draft, setDraft] = useState<Decision[] | null>(null);
@@ -235,6 +239,28 @@ export default function LikedPage() {
     [all, commit],
   );
 
+  const handleAdded = useCallback(
+    ({ status, name }: AddResult) => {
+      setAdding(false);
+      // Land on the list the name actually went into, with nothing filtering it
+      // out — it was just added to the top and should be the first thing seen.
+      // A neutral name is already in whichever list is open.
+      if (name.gender !== "neutral") setChosenTab(name.gender);
+      setQuery("");
+      setSort("manual");
+      setToast({
+        text:
+          status === "already"
+            ? `${name.display} is already on your shortlist`
+            : status === "restored"
+              ? `${name.display} is back on your shortlist`
+              : `Added ${name.display}`,
+      });
+      void mutate();
+    },
+    [mutate],
+  );
+
   useEffect(() => {
     if (!toast) return;
     const id = setTimeout(() => setToast(null), toast.undo ? 6000 : 2600);
@@ -254,16 +280,26 @@ export default function LikedPage() {
   return (
     <main className="flex flex-1 flex-col px-5 pb-3">
       <div className="sticky top-0 z-10 -mx-5 bg-canvas/95 px-5 pt-4 pb-2 backdrop-blur">
-        <header className="mb-3 flex items-baseline justify-between gap-3">
+        <header className="mb-3 flex items-center justify-between gap-3">
           <h1 className="font-display text-3xl">Shortlist</h1>
-          {surname && (
+          <div className="flex shrink-0 items-center gap-3">
+            {surname && (
+              <button
+                onClick={() => setShowSurname((v) => !v)}
+                className="text-[12px] text-muted transition-colors hover:text-ink"
+              >
+                {showSurname ? "Hide surname" : "Show surname"}
+              </button>
+            )}
             <button
-              onClick={() => setShowSurname((v) => !v)}
-              className="shrink-0 text-[12px] text-muted transition-colors hover:text-ink"
+              onClick={() => setAdding((v) => !v)}
+              aria-expanded={adding}
+              aria-label={adding ? "Close add a name" : "Add a name"}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-xl leading-none text-card"
             >
-              {showSurname ? "Hide surname" : "Show surname"}
+              {adding ? "×" : "+"}
             </button>
-          )}
+          </div>
         </header>
 
         <div className="flex gap-1 rounded-lg border border-line bg-card p-0.5">
@@ -311,14 +347,26 @@ export default function LikedPage() {
         )}
       </div>
 
+      {adding && (
+        <AddNameForm
+          origins={prefsData?.availableOrigins ?? []}
+          defaultGender={tab === "all" ? "neutral" : tab}
+          initialName={query.trim()}
+          onAdded={handleAdded}
+          onClose={() => setAdding(false)}
+        />
+      )}
+
       {isLoading && !data ? (
         <p className="mt-10 text-center text-sm text-muted">Loading…</p>
       ) : all.length === 0 ? (
         <div className="mt-16 px-6 text-center">
           <p className="font-display text-2xl">Nothing yet</p>
           <p className="mt-2 text-sm text-muted">
-            Names you like will collect here, in the order you choose.
+            Names you like will collect here, in the order you choose — from
+            swiping, or added by hand.
           </p>
+          {!adding && <AddButton onClick={() => setAdding(true)} />}
         </div>
       ) : view.length === 0 ? (
         <div className="mt-14 px-6 text-center">
@@ -334,6 +382,12 @@ export default function LikedPage() {
               ? `Nothing in this list matches “${query.trim()}”.`
               : "Keep swiping — the ones you like land here."}
           </p>
+          {!adding && (
+            <AddButton
+              onClick={() => setAdding(true)}
+              label={query.trim() ? `Add “${query.trim()}”` : "Add a name"}
+            />
+          )}
         </div>
       ) : (
         <>
@@ -388,6 +442,23 @@ export default function LikedPage() {
         </div>
       )}
     </main>
+  );
+}
+
+function AddButton({
+  onClick,
+  label = "Add a name",
+}: {
+  onClick: () => void;
+  label?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="mt-6 rounded-xl border border-line bg-card px-5 py-3 text-sm text-muted transition-colors hover:text-ink"
+    >
+      {label}
+    </button>
   );
 }
 

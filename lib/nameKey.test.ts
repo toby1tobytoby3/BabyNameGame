@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import rawLibrary from "../data/library.json" with { type: "json" };
-import { nameKey } from "./nameKey.ts";
+import { nameKey, tidyDisplay } from "./nameKey.ts";
 
 test("lowercases and trims", () => {
   assert.equal(nameKey("  Saoirse "), "saoirse");
@@ -55,6 +55,20 @@ test("library has no colliding keys", () => {
   }
   assert.deepEqual(collisions, []);
   assert.equal(seen.size, lib.length);
+});
+
+test("tidyDisplay fixes the two ways people type, and no others", () => {
+  assert.equal(tidyDisplay("  otto "), "Otto");
+  assert.equal(tidyDisplay("MARY-JANE"), "Mary-Jane");
+  assert.equal(tidyDisplay("mary  jane"), "Mary Jane");
+  assert.equal(tidyDisplay("o'brien"), "O'Brien");
+  // Deliberate internal capitals survive untouched — no rule gets these right.
+  assert.equal(tidyDisplay("McKenna"), "McKenna");
+  assert.equal(tidyDisplay("DeAndre"), "DeAndre");
+  assert.equal(tidyDisplay(" Saoirse "), "Saoirse");
+  // Accented and folded characters keep their form; only the case changes.
+  assert.equal(tidyDisplay("vebjørn"), "Vebjørn");
+  assert.equal(tidyDisplay("zoë"), "Zoë");
 });
 
 test("toTags survives the shapes jsonb can actually return", async () => {

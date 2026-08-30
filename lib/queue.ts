@@ -3,6 +3,7 @@ import { buildTopUp } from "./generate.ts";
 import { LIBRARY } from "./library.ts";
 import { nameKey, tidyDisplay } from "./nameKey.ts";
 import { buildProfile } from "./profile.ts";
+import { upsertTraitsBestEffort } from "./traits.ts";
 import {
   clampOriginPrefs,
   DEFAULT_PREFERENCES,
@@ -160,6 +161,11 @@ async function insertCandidates(
     source: c.source,
   }));
 
+  // Analyse in the same transaction as the insert. A queued name without
+  // traits is invisible to anything that joins on them, and this is the only
+  // route by which a name the library has never heard of (an AI one) arrives.
+  await upsertTraitsBestEffort(candidates, h);
+
   const s = h as typeof sql;
   const inserted = await s<{ name_key: string }[]>`
     INSERT INTO ${q(h, "queue")} (name_key, display, gender, origin, tags, source)
@@ -292,6 +298,8 @@ export async function addLiked(input: {
 
   return sql.begin(async (tx): Promise<AddResult> => {
     const decisions = q(tx, "decisions");
+    // The other route by which an unknown name enters; see insertCandidates.
+    await upsertTraitsBestEffort([{ name_key: key, display, origin }], tx);
     const topRank = tx`(SELECT COALESCE(MIN(rank), 1) - 1 FROM ${q(tx, "decisions")} WHERE verdict = 'like')`;
 
     const [existing] = await tx<Decision[]>`

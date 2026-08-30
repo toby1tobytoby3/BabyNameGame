@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --test lib/**/*.test.ts",
-    "db:push": "node --env-file=.env.local scripts/db-push.ts"
+    "db:push": "node --env-file=.env.local scripts/db-push.ts",
+    "traits:push": "node --env-file=.env.local scripts/analyse-names.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",

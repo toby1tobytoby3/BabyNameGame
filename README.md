@@ -59,6 +59,7 @@ npm run dev
 | `npm run build` | Production build |
 | `npm test` | Unit tests (normalisation + generation pipeline) |
 | `npm run db:push` | Re-apply `db/*.sql`. Idempotent — safe to re-run. Run it after pulling a change that adds a file to `db/`. |
+| `npm run traits:push` | Analyse every known name into `name_traits`. Idempotent; run after `db:push` and after any change to `lib/analyse.ts`. |
 
 ---
 
@@ -86,6 +87,22 @@ roughly fifteen times rarer than neutral, and still never zero, so nothing
 becomes unreachable). "Only these" restricts to the origins pulled right, and
 the model is told about both halves separately so it doesn't read a label and
 miss the sign.
+
+**What a name is like.** `name_traits` holds twelve properties of every name the
+app knows — length, syllables, opening and closing sound, plosive density
+("hardness"), sonorant density, front-vowel balance, doubled letters, consonant
+clusters. All of it is derived from the spelling by `lib/analyse.ts`, so it
+costs nothing per name and works for names nobody has tagged: a name generated
+by Claude gets the same analysis as a library one. The table is a **cache** —
+drop it and rebuild with `npm run traits:push` — and rows carry the analyser
+version that wrote them, so improving the analysis is an UPDATE, not a
+migration.
+
+Syllable counting from spelling is a heuristic, measured at ~90% exact and 99.8%
+within one syllable across 1,090 names (CMU Pronouncing Dictionary where it has
+an entry, hand-labelled across all 24 origins where it does not — CMUdict covers
+only 48% of the library, and only in American English). Sound for aggregates and
+comparisons; treat one name's count as approximate.
 
 **Personalisation.** A style profile is rebuilt on every top-up from what you've
 liked: origin distribution, style tags, and name length. Candidates are scored

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import AddNameForm from "@/components/AddNameForm";
 import ShortlistRow from "@/components/ShortlistRow";
+import TasteCard from "@/components/TasteCard";
 import { fetcher } from "@/lib/fetcher";
 import type { AddResult } from "@/lib/queue";
 import { MAX_HEARTS, type Decision } from "@/lib/types";
@@ -356,6 +357,9 @@ export default function LikedPage() {
           onClose={() => setAdding(false)}
         />
       )}
+
+      {/* Renders nothing until there is enough evidence to say something. */}
+      <TasteCard />
 
       {isLoading && !data ? (
         <p className="mt-10 text-center text-sm text-muted">Loading…</p>

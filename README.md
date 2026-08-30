@@ -57,7 +57,7 @@ npm run dev
 |---|---|
 | `npm run dev` | Local dev server |
 | `npm run build` | Production build |
-| `npm test` | Unit tests (normalisation + generation pipeline) |
+| `npm test` | Unit tests (normalisation, generation, the analyser against 236 labelled names, and the insight/fit logic) |
 | `npm run db:push` | Re-apply `db/*.sql`. Idempotent — safe to re-run. Run it after pulling a change that adds a file to `db/`. |
 | `npm run traits:push` | Analyse every known name into `name_traits`. Idempotent; run after `db:push` and after any change to `lib/analyse.ts`. |
 
@@ -103,6 +103,37 @@ within one syllable across 1,090 names (CMU Pronouncing Dictionary where it has
 an entry, hand-labelled across all 24 origins where it does not — CMUdict covers
 only 48% of the library, and only in American English). Sound for aggregates and
 comparisons; treat one name's count as approximate.
+
+**What you seem to like.** The card at the top of the shortlist compares the
+names you liked against the ones you passed and reports only differences that
+survive a significance test — Welch's *t* for the numeric traits, a
+two-proportion *z* for the yes/no ones — gated on effect size as well as *p*, so
+a difference has to be both real and large enough to be worth a sentence. At
+most one claim per family (length, sound, ending, texture, vowels, initial)
+makes the card, so it never says "you like short names" three ways. Below 25
+likes, or with nothing that clears the bars, **the card renders nothing at all**
+— no placeholder, no "not enough data yet". Silence is the honest state.
+
+**Best fit.** "Find more like these" ranks every name the app knows against your
+shortlist. Fit is a nearest-neighbour score, not a distance from the average:
+each candidate is matched against every liked name individually and keeps its
+best match, which is why the results say *like Elin* or *like Amalia* and why
+they cover the several different kinds of name you actually like rather than
+collapsing onto one archetype. Traits proven by the findings above weigh more
+than the rest, but every trait carries a base weight, so fit means something
+from a handful of likes — before there is enough evidence to say anything out
+loud. Ties are broken by a hash of the name, not alphabetically: equally good
+matches genuinely have no order, and A–Z made the list open with every name
+beginning A.
+
+**All names.** `/names` is the whole library plus everything you have decided on
+outside it, searchable by name or origin and filterable by gender, syllable
+count, ending, feel (soft ⇄ hard, set from the outer thirds of the library's own
+spread rather than fixed numbers) and origin. Each row shows whether the name is
+new, liked, passed or waiting in the queue, and liking one from here is the same
+real decision as adding by hand. Traits are computed in-process from
+`lib/analyse.ts` rather than read from `name_traits`, so browsing works whether
+or not the table has been backfilled.
 
 **Personalisation.** A style profile is rebuilt on every top-up from what you've
 liked: origin distribution, style tags, and name length. Candidates are scored

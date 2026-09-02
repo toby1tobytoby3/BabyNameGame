@@ -85,11 +85,11 @@ export default function ShortlistRow({
   }
 
   return (
-    <div className="relative overflow-hidden rounded-lg select-none">
+    <div className="relative overflow-hidden select-none">
       <motion.div
         aria-hidden
         style={{ opacity: revealed }}
-        className="absolute inset-0 flex items-center justify-end rounded-lg bg-red-600/90 pr-4 text-[12px] tracking-wide text-white"
+        className="absolute inset-0 flex items-center justify-end bg-red-600/90 pr-4 text-[12px] tracking-wide text-white"
       >
         Remove
       </motion.div>
@@ -126,7 +126,11 @@ export default function ShortlistRow({
           }
         }}
         onClick={handleTap}
-        className="relative flex items-center gap-2 rounded-lg border border-line bg-card px-2.5 py-2"
+        // No border and no radius of its own: the rows sit inside one bordered
+        // card and are separated by hairlines, so the shortlist reads as a list
+        // rather than as ninety-three floating tiles. `bg-card` stays — it is
+        // what hides the remove strip underneath until you swipe.
+        className="relative flex items-center gap-2 bg-card px-3 py-2"
       >
         {dragControls && (
           <button

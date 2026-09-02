@@ -39,3 +39,16 @@ CREATE INDEX IF NOT EXISTS name_traits_stale_idx
   ON babynames.name_traits (analysed_with);
 
 ALTER TABLE babynames.name_traits ENABLE ROW LEVEL SECURITY;
+
+-- …which, without a policy, means the app role reads *nothing*. Not an error —
+-- an empty result. This table was created with RLS on and no policy, so every
+-- aggregate over it came back with n = 0 and the shortlist's insight card, whose
+-- honest response to too little evidence is to render nothing, rendered nothing
+-- while looking exactly like a feature that had not shipped. The other three
+-- tables carry the same pair; it belongs in the migration, not in the setup
+-- someone did by hand once.
+GRANT SELECT, INSERT, UPDATE, DELETE ON babynames.name_traits TO babynames_app;
+
+DROP POLICY IF EXISTS app_all ON babynames.name_traits;
+CREATE POLICY app_all ON babynames.name_traits
+  FOR ALL TO babynames_app USING (true) WITH CHECK (true);

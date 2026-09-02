@@ -395,31 +395,34 @@ export default function LikedPage() {
         </div>
       ) : (
         <>
-          {canDrag ? (
-            <Reorder.Group
-              axis="y"
-              values={view}
-              onReorder={handleReorder}
-              className="mt-1 space-y-1"
-            >
-              {view.map((n, i) => (
-                <SortableRow
-                  key={n.name_key}
-                  value={n}
-                  onDrop={commitOrder}
-                  rowProps={rowProps(n, i)}
-                />
-              ))}
-            </Reorder.Group>
-          ) : (
-            <ul className="mt-1 space-y-1">
-              {view.map((n, i) => (
-                <li key={n.name_key}>
-                  <ShortlistRow {...rowProps(n, i)} />
-                </li>
-              ))}
-            </ul>
-          )}
+          {/* One card around the whole list, hairlines between the names. */}
+          <div className="mt-2 overflow-hidden rounded-xl border border-line bg-card">
+            {canDrag ? (
+              <Reorder.Group
+                axis="y"
+                values={view}
+                onReorder={handleReorder}
+                className="divide-y divide-line"
+              >
+                {view.map((n, i) => (
+                  <SortableRow
+                    key={n.name_key}
+                    value={n}
+                    onDrop={commitOrder}
+                    rowProps={rowProps(n, i)}
+                  />
+                ))}
+              </Reorder.Group>
+            ) : (
+              <ul className="divide-y divide-line">
+                {view.map((n, i) => (
+                  <li key={n.name_key}>
+                    <ShortlistRow {...rowProps(n, i)} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           <p className="mt-4 mb-1 text-center text-[11px] leading-relaxed text-muted">
             {canDrag

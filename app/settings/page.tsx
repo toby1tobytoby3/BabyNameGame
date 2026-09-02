@@ -155,7 +155,7 @@ export default function SettingsPage() {
 
         <div className="mt-3 overflow-hidden rounded-xl border border-line bg-card">
           {/* Scale legend, on the same grid as the rows so it sits over the axis. */}
-          <div className="grid grid-cols-[1fr_8.5rem_1.5rem] gap-2 border-b border-line px-3 py-1.5 text-[10px] tracking-wide text-muted uppercase">
+          <div className="grid grid-cols-[1fr_8.5rem_1.75rem] gap-2 border-b border-line px-3 py-1.5 text-[10px] tracking-wide text-muted uppercase">
             <span />
             <span className="flex justify-between">
               <span>Fewer</span>
